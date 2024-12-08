@@ -26,10 +26,10 @@ echo "DATABASE_DB=_ds_superset" >> .env.superset
 echo "SUPERSET_SECRET_KEY=\$STACK_SECRET" >> .env.superset
 
 cp support/caddy.cfg config/caddy/Caddyfile
-cp support/airbyte.yml config/abctl/values.yml
+cp support/airbyte.yml config/airbyte/values.yml
 cp support/superset.pip superset/docker/requirements-local.txt
 
-sed -i -e "s/\$password/$password/g" config/abctl/values.yml
+sed -i -e "s/\$password/$password/g" config/airbyte/values.yml
 
 touch .env
 echo "STACK_EMAIL=$email" >> .env
