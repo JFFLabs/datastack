@@ -1,0 +1,158 @@
+services:
+  caddy:
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - kind
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - $PWD/config/caddy:/etc/caddy
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - EMAIL=$STACK_EMAIL
+      - DOMAIN=$STACK_DOMAIN
+
+  redis:
+    image: redis:7.4.1
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+        - kind
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: postgres:17.2
+#    restart: unless-stopped
+    env_file:
+      - .env
+      - .env.postgres
+    shm_size: 512mb
+    networks:
+      - kind
+    ports:
+      - "5432:5432"
+    command: >
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/server.crt
+      -c ssl_key_file=/var/lib/postgresql/server.key
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - $PWD/config/postgres/server.crt:/var/lib/postgresql/server.crt
+      - $PWD/config/postgres/server.key:/var/lib/postgresql/server.key
+      - $PWD/support/initdb.d:/docker-entrypoint-initdb.d
+
+  baserow:
+    image: baserow/baserow:1.29.3
+    restart: unless-stopped
+    env_file:
+      - .env
+      - .env.baserow
+    depends_on:
+      - postgres
+    networks:
+      - kind
+    volumes:
+      - baserow_data:/baserow/data
+
+  superset:
+    image: apache/superset:4.1.1
+    command: ["/app/docker/docker-bootstrap.sh", "app-gunicorn"]
+    restart: unless-stopped
+    user: root
+    env_file:
+      - .env
+      - .env.superset
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - kind
+    volumes:
+      - superset_home:/app/superset_home
+      - $PWD/superset/docker:/app/docker
+      - $PWD/config/superset/docker.py:/app/pythonpath/superset_config.py
+
+  superset_init:
+    image: apache/superset:4.1.1
+    command: ["/app/docker/docker-init.sh"]
+    user: root
+    env_file:
+      - .env
+      - .env.superset
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - kind
+    volumes:
+      - superset_home:/app/superset_home
+      - $PWD/superset/docker:/app/docker
+      - $PWD/config/superset/docker.py:/app/pythonpath/superset_config.py
+    healthcheck:
+      disable: true
+
+  superset_worker:
+    image: apache/superset:4.1.1
+    command: ["/app/docker/docker-bootstrap.sh", "worker"]
+    restart: unless-stopped
+    user: root
+    env_file:
+      - .env
+      - .env.superset
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - kind
+    volumes:
+      - superset_home:/app/superset_home
+      - $PWD/superset/docker:/app/docker
+      - $PWD/config/superset/docker.py:/app/pythonpath/superset_config.py
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A superset.tasks.celery_app:app inspect ping -d celery@$$HOSTNAME",
+        ]
+
+  superset_beat:
+    image: apache/superset:4.1.1
+    command: ["/app/docker/docker-bootstrap.sh", "beat"]
+    restart: unless-stopped
+    user: root
+    env_file:
+      - .env
+      - .env.superset
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - kind
+    volumes:
+      - superset_home:/app/superset_home
+      - $PWD/superset/docker:/app/docker
+      - $PWD/config/superset/docker.py:/app/pythonpath/superset_config.py
+    healthcheck:
+      disable: true
+
+networks:
+  kind:
+    name: kind
+
+volumes:
+  caddy_data:
+  caddy_config:
+  redis_data:
+  postgres_data:
+  baserow_data:
+  superset_home:

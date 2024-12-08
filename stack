@@ -1,0 +1,193 @@
+#!/bin/bash
+
+# Directory where migration scripts are stored
+MIGRATIONS_DIR="$PWD/migrations"
+
+BASH="$(which bash)"
+DOCKER="$(which docker)"
+ABCTL="$(which abctl)"
+CURL="$(which curl)"
+JQ="$(which jq)"
+
+# Get the current version from a file (or database if you prefer)
+function get_current_version() {
+    if [ -f $PWD/.ver.current ]; then
+        cat $PWD/.ver.current
+    else
+        echo "0"
+    fi
+}
+
+# Update the current version file
+function update_current_version() {
+    echo "$1" > $PWD/.ver.current
+}
+
+# Run a migration script
+function run_migration() {
+    local migration="$1"
+    echo "Running migration: $migration"
+    $BASH "$migration"
+    if [ $? -ne 0 ]; then
+        echo "Migration failed: $migration"
+        exit 1
+    fi
+}
+
+function migrate() {
+    # Main script logic
+    current_version=$(get_current_version)
+
+    # Find and execute new migrations
+    for migration in $(ls "$MIGRATIONS_DIR"/*.sh | sort); do
+        migration_version=$(basename "$migration" | cut -d '_' -f 1)
+
+        if [[ "$migration_version" > "$current_version" ]]; then
+            run_migration "$migration"
+            update_current_version "$migration_version"
+        fi
+    done
+
+    echo "Migrations complete."
+}
+
+
+function install() {
+    if [[ $ABCTL = "" ]]; then
+        curl -LsfS https://get.airbyte.com | $BASH -
+    fi
+
+    #
+    # Create a Potgres Cert
+    #
+
+    openssl req -new -x509 -days 36500 -nodes -text \
+        -out config/postgres/server.crt -keyout config/postgres/server.key \
+        -subj "/CN=postgres"
+
+    chmod 600 config/postgres/server.*
+    chown 999 config/postgres/server.*
+
+    #
+    # Update set recurring configs, run migrations
+    #
+
+    update
+    source $PWD/.env
+
+    if [[ ! "$STACK_EMAIL" =~ "@" ]]; then
+        login="$STACK_EMAIL@$STACK_DOMAIN"
+    else
+        login="$STACK_EMAIL"
+    fi
+
+    while true; do
+        read -s -p "Please enter a password: " password
+        echo
+        read -s -p "Confirm your password: " password_confirmation
+        echo
+        [ "$password" = "$password_confirmation" ] && break
+        echo "Please try again"
+    done
+
+    docker compose --compatibility up -d
+
+    until PGPASSWORD=$STACK_PASSWORD psql -w -q -h localhost -U postgres -c "SELECT 1" &>/dev/null
+    do
+        sleep 1
+    done
+
+    #
+    # Update Superset credentials
+    #
+
+    while :
+    do
+        token=$($CURL "https://vis.$STACK_DOMAIN/api/v1/security/login" -s -k -X POST \
+            --resolve vis.$STACK_DOMAIN:443:127.0.0.1 \
+            -H 'Content-Type: application/json' \
+            -d '{
+                "username":"admin",
+                "password":"admin",
+                "provider":"db"
+            }' | jq -r '.access_token // empty')
+
+        sleep 3
+
+        if [[ "$token" != "" ]]; then
+            $CURL "https://vis.$STACK_DOMAIN/api/v1/security/users/1" -s -k -X PUT \
+                --resolve vis.$STACK_DOMAIN:443:127.0.0.1 \
+                -H 'Content-Type: application/json' \
+                -H 'Authorization: Bearer '"$token"'' \
+                -d '{
+                    "email":"'$login'",
+                    "username":"'$login'",
+                    "password":"'$password'"
+                }' > /dev/null
+            break
+        fi
+    done
+
+    #
+    # Install Airbyte
+    #
+
+    PGPASSWORD=$STACK_PASSWORD psql -w -q -h localhost -U postgres -c \
+        "ALTER USER airbyte WITH PASSWORD '$(
+            cat config/abctl/values.yml | grep 'password:' | awk '{ print $2 }
+        ')'"
+
+    $ABCTL local install --values config/abctl/values.yml --port 4871 --no-browser
+
+    #
+    # Update Airbyte credentials
+    #
+
+    $ABCTL local credentials --email "$login" --password "$password" &> /dev/null
+}
+
+function uninstall() {
+    docker compose --compatibility down -v
+    $ABCTL local uninstall
+    rm $PWD/.ver.current
+    rm $PWD/.env*
+
+    for dir in `dir $PWD/config`; do
+        rm $PWD/config/$dir/*
+    done
+}
+
+function update() {
+    migrate
+}
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <subcommand> [options]"
+    exit 1
+fi
+
+subcommand="$1"
+shift
+
+if [[ $(/usr/bin/id -u) -ne 0 ]]; then
+    echo "Not running as root"
+    exit
+fi
+
+case "$subcommand" in
+    "install")
+        install
+        exit 0
+        ;;
+    "update")
+        update
+        exit 0
+        ;;
+    "uninstall")
+        uninstall
+        exit 0
+        ;;
+esac
+
+echo "Invalid subcommand: $subcommand"
+exit 1
