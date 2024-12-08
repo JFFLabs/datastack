@@ -47,8 +47,6 @@ function migrate() {
             update_current_version "$migration_version"
         fi
     done
-
-    echo "Migrations complete."
 }
 
 
@@ -92,10 +90,16 @@ function install() {
 
     docker compose --compatibility up -d
 
+    #
+    # Await Postgres and update credentials
+
     until PGPASSWORD=$STACK_PASSWORD psql -w -q -h localhost -U postgres -c "SELECT 1" &>/dev/null
     do
-        sleep 1
+        sleep 3
     done
+
+    PGPASSWORD=$STACK_PASSWORD psql -w -q -h localhost -U postgres \
+        -c "ALTER USER internal WITH PASSWORD '$password'"
 
     #
     # Update Superset credentials
@@ -103,46 +107,38 @@ function install() {
 
     while :
     do
-        token=$($CURL "https://vis.$STACK_DOMAIN/api/v1/security/login" -s -k -X POST \
-            --resolve vis.$STACK_DOMAIN:443:127.0.0.1 \
+        token=$($CURL "https://superset.$STACK_DOMAIN/api/v1/security/login" -s -k -X POST \
+            --resolve superset.$STACK_DOMAIN:443:127.0.0.1 \
             -H 'Content-Type: application/json' \
             -d '{
                 "username":"admin",
                 "password":"admin",
                 "provider":"db"
-            }' | jq -r '.access_token // empty')
+            }' \
+        | jq -r '.access_token // empty')
 
         sleep 3
 
         if [[ "$token" != "" ]]; then
-            $CURL "https://vis.$STACK_DOMAIN/api/v1/security/users/1" -s -k -X PUT \
-                --resolve vis.$STACK_DOMAIN:443:127.0.0.1 \
+            $CURL "https://superset.$STACK_DOMAIN/api/v1/security/users/1" -s -k -X PUT \
+                --resolve superset.$STACK_DOMAIN:443:127.0.0.1 \
                 -H 'Content-Type: application/json' \
                 -H 'Authorization: Bearer '"$token"'' \
                 -d '{
                     "email":"'$login'",
                     "username":"'$login'",
                     "password":"'$password'"
-                }' > /dev/null
+                }' \
+            > /dev/null
             break
         fi
     done
 
     #
-    # Install Airbyte
+    # Install Airbyte and update credentials
     #
-
-    PGPASSWORD=$STACK_PASSWORD psql -w -q -h localhost -U postgres -c \
-        "ALTER USER airbyte WITH PASSWORD '$(
-            cat config/abctl/values.yml | grep 'password:' | awk '{ print $2 }
-        ')'"
 
     $ABCTL local install --values config/abctl/values.yml --port 4871 --no-browser
-
-    #
-    # Update Airbyte credentials
-    #
-
     $ABCTL local credentials --email "$login" --password "$password" &> /dev/null
 }
 

@@ -6,14 +6,14 @@ secret="$(cat /proc/sys/kernel/random/uuid)"
 password="$(cat /proc/sys/kernel/random/uuid)"
 
 touch .env.baserow
-echo "BASEROW_PUBLIC_URL=https://app.\$STACK_DOMAIN" >> .env.baserow
-echo "DATABASE_URL=postgresql://postgres:\$STACK_PASSWORD@postgres:5432/baserow" >> .env.baserow
+echo "BASEROW_PUBLIC_URL=https://baserow.\$STACK_DOMAIN" >> .env.baserow
+echo "DATABASE_URL=postgresql://postgres:\$STACK_PASSWORD@postgres:5432/_ds_baserow" >> .env.baserow
 
 touch .env.postgres
 echo "POSTGRES_PASSWORD=\$STACK_PASSWORD" > .env.postgres
 
 touch .env.superset
-echo "DATABASE_DB=superset" >> .env.superset
+echo "DATABASE_DB=_ds_superset" >> .env.superset
 echo "DATABSE_HOST=postgres" >> .env.superset
 echo "DATABASE_USER=postgres" >> .env.superset
 echo "DATABASE_PASSWORD=\$STACK_PASSWORD" >> .env.superset
@@ -23,7 +23,7 @@ echo "SUPERSET_PORT=80" >> .env.superset
 cp support/caddy.cfg config/caddy/Caddyfile
 cp support/values.yml config/abctl/values.yml
 
-sed -i -e "s/__password__/$(cat /proc/sys/kernel/random/uuid)/g" config/abctl/values.yml
+sed -i -e "s/__password__/$password/g" config/abctl/values.yml
 
 touch .env
 echo "STACK_EMAIL=$email" >> .env

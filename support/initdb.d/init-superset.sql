@@ -1,2 +1,2 @@
-DROP DATABASE IF EXISTS superset;
-CREATE DATABASE superset;
+DROP DATABASE IF EXISTS _ds_superset;
+CREATE DATABASE _ds_superset;

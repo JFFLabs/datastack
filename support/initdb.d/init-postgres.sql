@@ -1,0 +1,2 @@
+CREATE USER internal;
+ALTER USER internal CREATEDB;

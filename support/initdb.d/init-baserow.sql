@@ -1,2 +1,2 @@
-DROP DATABASE IF EXISTS baserow;
-CREATE DATABASE baserow;
+DROP DATABASE IF EXISTS _ds_baserow;
+CREATE DATABASE _ds_baserow;
