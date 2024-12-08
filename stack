@@ -145,11 +145,11 @@ function install() {
 function uninstall() {
     docker compose --compatibility down -v
     $ABCTL local uninstall
-    rm $PWD/.ver.current
-    rm $PWD/.env*
+    rm -f $PWD/.ver.current
+    rm -f $PWD/.env*
 
     for dir in `dir $PWD/config`; do
-        rm $PWD/config/$dir/*
+        rm -f $PWD/config/$dir/*
     done
 }
 
