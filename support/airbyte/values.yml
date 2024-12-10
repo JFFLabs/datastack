@@ -5,7 +5,7 @@ global:
     port: 5432
     database: _ds_airbyte
     user: postgres
-    password: $password
+    password: $STACK_PASSWORD
 
 postgresql:
   enabled: false

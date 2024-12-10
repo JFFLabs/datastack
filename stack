@@ -3,11 +3,14 @@
 # Directory where migration scripts are stored
 MIGRATIONS_DIR="$PWD/migrations"
 
+CAT="$(which cat)"
+SED="$(which sed)"
 BASH="$(which bash)"
+CURL="$(which curl)"
 DOCKER="$(which docker)"
 ABCTL="$(which abctl)"
-CURL="$(which curl)"
 JQ="$(which jq)"
+
 
 # Get the current version from a file (or database if you prefer)
 function get_current_version() {
@@ -60,34 +63,18 @@ function install() {
     #
 
     openssl req -new -x509 -days 36500 -nodes -text \
-        -out config/postgres/server.crt -keyout config/postgres/server.key \
+        -out $PWD/support/postgres/server.crt -keyout $PWD/support/postgres/server.key \
         -subj "/CN=postgres"
 
-    chmod 600 config/postgres/server.*
-    chown 999 config/postgres/server.*
+    chmod 600 $PWD/support/postgres/server.*
+    chown 999 $PWD/support/postgres/server.*
 
     #
     # Update set recurring configs, run migrations
     #
 
-    update
+    update true
     source $PWD/.env
-
-    if [[ ! "$STACK_EMAIL" =~ "@" ]]; then
-        login="$STACK_EMAIL@$STACK_DOMAIN"
-    else
-        login="$STACK_EMAIL"
-    fi
-
-    while true; do
-        read -s -p "Please enter a password: " password
-        echo
-        read -s -p "Confirm your password: " password_confirmation
-        echo
-        [ "$password" = "$password_confirmation" ] && break
-        echo "Please try again"
-    done
-
     docker compose --compatibility up -d
 
     #
@@ -99,7 +86,7 @@ function install() {
     done
 
     PGPASSWORD=$STACK_PASSWORD psql -w -q -h localhost -U postgres \
-        -c "ALTER USER internal WITH PASSWORD '$password'"
+        -c "ALTER USER internal WITH PASSWORD '$STACK_LOGIN_PASSWORD'"
 
     #
     # Update Superset credentials
@@ -117,7 +104,7 @@ function install() {
             }' \
         | jq -r '.access_token // empty')
 
-        sleep 3
+        sleep 5
 
         if [[ "$token" != "" ]]; then
             $CURL "https://superset.$STACK_DOMAIN/api/v1/security/users/1" -s -k -X PUT \
@@ -125,36 +112,52 @@ function install() {
                 -H 'Content-Type: application/json' \
                 -H 'Authorization: Bearer '"$token"'' \
                 -d '{
-                    "email":"'$login'",
-                    "username":"'$login'",
-                    "password":"'$password'"
+                    "email":"'$STACK_LOGIN_EMAIL'",
+                    "username":"'$STACK_LOGIN_EMAIL'",
+                    "password":"'$STACK_LOGIN_PASSWORD'"
                 }' \
             > /dev/null
             break
         fi
     done
-
+    
+	$DOCKER compose exec superset superset fab import-roles --path /app/roles/public.json
+	
     #
     # Install Airbyte and update credentials
     #
 
-    $ABCTL local install --values config/airbyte/values.yml --port 4871 --no-browser
-    $ABCTL local credentials --email "$login" --password "$password" &> /dev/null
+	$CAT $PWD/support/airbyte/values.yml \
+		| $SED "s/\$STACK_PASSWORD/$STACK_PASSWORD/" \
+	> $PWD/.airbyte.yml
+	
+    $ABCTL local install --values $PWD/.airbyte.yml --port 4871 --no-browser
+    $ABCTL local credentials --email "$STACK_LOGIN_EMAIL" --password "$STACK_LOGIN_PASSWORD" &> /dev/null
 }
 
 function uninstall() {
-    docker compose --compatibility down -v
+    $DOCKER compose --compatibility down -v
     $ABCTL local uninstall
     rm -f $PWD/.ver.current
+    rm -f $PWD/.airbyte.yml
     rm -f $PWD/.env*
-
-    for dir in `dir $PWD/config`; do
-        rm -f $PWD/config/$dir/*
-    done
 }
 
 function update() {
+	if [[ "$1" != "true" ]]; then
+		$DOCKER compose --compatibility down
+		$GIT pull origin --recurse-submodules
+	fi 
+	
     migrate
+
+	#
+	# Recurring Copies
+	#
+
+	cp $PWD/support/superset/install.pip $PWD/superset/docker/requirements-local.txt
+
+    $DOCKER compose --compatibility up -d
 }
 
 if [ $# -eq 0 ]; then

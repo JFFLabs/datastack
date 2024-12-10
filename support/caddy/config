@@ -1,3 +1,8 @@
+https://postgres.{$DOMAIN} {
+	tls {$EMAIL}
+	reverse_proxy http://postgres_admin
+}
+
 https://baserow.{$DOMAIN} {
 	tls {$EMAIL}
 	reverse_proxy http://baserow

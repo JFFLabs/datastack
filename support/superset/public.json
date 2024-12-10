@@ -1,0 +1,183 @@
+[
+  {
+    "name": "Public",
+    "permissions": [
+      {
+        "permission": {
+          "name": "can_read"
+        },
+        "view_menu": {
+          "name": "Dashboard"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_export"
+        },
+        "view_menu": {
+          "name": "Chart"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_read"
+        },
+        "view_menu": {
+          "name": "DashboardFilterStateRestApi"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_export"
+        },
+        "view_menu": {
+          "name": "Dashboard"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_share_dashboard"
+        },
+        "view_menu": {
+          "name": "Superset"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_share_chart"
+        },
+        "view_menu": {
+          "name": "Superset"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_read"
+        },
+        "view_menu": {
+          "name": "DashboardPermalinkRestApi"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_read"
+        },
+        "view_menu": {
+          "name": "Chart"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_dashboard_permalink"
+        },
+        "view_menu": {
+          "name": "Superset"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_dashboard"
+        },
+        "view_menu": {
+          "name": "Superset"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_drill"
+        },
+        "view_menu": {
+          "name": "Dashboard"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_csv"
+        },
+        "view_menu": {
+          "name": "Superset"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_write"
+        },
+        "view_menu": {
+          "name": "DashboardPermalinkRestApi"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_read"
+        },
+        "view_menu": {
+          "name": "Explore"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_read"
+        },
+        "view_menu": {
+          "name": "ExploreFormDataRestApi"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_read"
+        },
+        "view_menu": {
+          "name": "ExplorePermalinkRestApi"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_explore_json"
+        },
+        "view_menu": {
+          "name": "Superset"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_explore"
+        },
+        "view_menu": {
+          "name": "Superset"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_query_form_data"
+        },
+        "view_menu": {
+          "name": "Api"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_query"
+        },
+        "view_menu": {
+          "name": "Api"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_slice"
+        },
+        "view_menu": {
+          "name": "Superset"
+        }
+      },
+      {
+        "permission": {
+          "name": "can_write"
+        },
+        "view_menu": {
+          "name": "ExploreFormDataRestApi"
+        }
+      }
+    ]
+  }
+]

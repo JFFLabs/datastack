@@ -1,2 +1,5 @@
 .env*
-.ver.current
+.ver*
+.*.*
+*.key
+*.crt
