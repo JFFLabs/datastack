@@ -1,2 +1,0 @@
-DROP DATABASE IF EXISTS _ds_baserow;
-CREATE DATABASE _ds_baserow;

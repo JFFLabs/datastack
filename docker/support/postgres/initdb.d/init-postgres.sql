@@ -1,3 +1,0 @@
-CREATE USER internal;
-ALTER USER internal CREATEDB;
-ALTER USER internal CREATEROLE;
