@@ -1,0 +1,19 @@
+#!/bin/bash
+
+source .env
+
+if [[ $(whoami) != "root" ]]; then
+	echo "Must be executed as root, try using 'sudo'"
+	exit 1
+fi
+
+dkr=$(which docker)
+
+ swarm leave --force &> /dev/null
+ network rm  &> /dev/null
+ update --restart=no  &> /dev/null
+ stop  &> /dev/null
+ container rm   &> /dev/null
+ volume rm  &> /dev/null
+
+rm -f /usr/sbin/stack

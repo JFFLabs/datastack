@@ -1,0 +1,59 @@
+#!/bin/bash
+
+if [[ $(whoami) != "root" ]]; then
+	echo "Must be executed as root, try using 'sudo'"
+	exit 1
+fi
+
+lsb=$(which lsb_release)
+
+if [[  == "" ]]; then
+	echo "LSB release could not be located, please install 'lsb_release'"
+	exit 2
+fi
+
+setup_common() {
+	adr=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
+	ipt=$(which ip)
+	git=$(which git)
+	dkr=$(which docker)
+
+	if [[  == "" ]]; then
+		curl -fsSL https://get.docker.com -o get-docker.sh | bash
+
+		dkr=$(which docker)
+	fi
+
+	 swarm init --advertise-addr  > /dev/null
+
+	tokn=$( swarm join-token worker -q)
+	sock=$(systemctl show docker.socket | grep Listen\= | awk '{ split($1, a, "="); print a[2]  }')
+
+	 network create --driver overlay --attachable datastack > /dev/null
+	 container create -t --name datastack --network datastack --restart always -v :/run/docker.sock -v datastack:/data jfforg/datastack:alpha > /dev/null
+	 start datastack > /dev/null
+
+	echo "#!/bin/bash" > /usr/sbin/stack
+	echo " exec -t datastack stack \"\$@\"" >> /usr/sbin/stack
+	chmod 755 /usr/sbin/stack
+
+	/usr/sbin/stack install
+}
+
+setup_debian() {
+	apt-get install -y -qq iproute2 git grep gawk sed
+
+	setup_common
+}
+
+case "$( -i -s)" in
+	"Debian")
+		setup_debian
+		;;
+	*)
+		echo "System of type '' is not supported"
+		exit 3
+esac
+
+
+

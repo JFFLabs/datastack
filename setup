@@ -1,0 +1,62 @@
+#!/bin/bash
+
+if [[ $(whoami) != "root" ]]; then
+	echo "Must be executed as root, try using 'sudo'"
+	exit 1
+fi
+
+lsb=$(which lsb_release)
+dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+source $dir/.env
+
+if [[ $lsb == "" ]]; then
+	echo "LSB release could not be located, please install 'lsb_release'"
+	exit 2
+fi
+
+setup_common() {
+	adr=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
+	ipt=$(which ip)
+	git=$(which git)
+	dkr=$(which docker)
+
+	if [[ $dkr == "" ]]; then
+		curl -fsSL https://get.docker.com -o get-docker.sh | bash
+
+		dkr=$(which docker)
+	fi
+
+	$dkr swarm init --advertise-addr $adr > /dev/null
+
+	tokn=$($dkr swarm join-token worker -q)
+	sock=$(systemctl show docker.socket | grep Listen\= | awk '{ split($1, a, "="); print a[2]  }')
+
+	$dkr network create --driver overlay --attachable $PKG_NAME > /dev/null
+	$dkr container create -t --name $PKG_NAME --network $PKG_NAME --restart always -v $sock:/run/docker.sock -v $PKG_NAME:/data jfforg/$PKG_NAME:$PKG_VTAG > /dev/null
+	$dkr start $PKG_NAME > /dev/null
+
+	echo "#!/bin/bash" > /usr/sbin/stack
+	echo "$dkr exec -t $PKG_NAME stack \"\$@\"" >> /usr/sbin/stack
+	chmod 755 /usr/sbin/stack
+
+	/usr/sbin/stack install
+}
+
+setup_debian() {
+	apt-get install -y -qq iproute2 git grep gawk sed
+
+	setup_common
+}
+
+case "$($lsb -i -s)" in
+	"Debian")
+		setup_debian
+		;;
+	*)
+		echo "System of type '$release' is not supported"
+		exit 3
+esac
+
+
+

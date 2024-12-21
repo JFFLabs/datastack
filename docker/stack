@@ -120,9 +120,9 @@ function install() {
             break
         fi
     done
-    
+
 	$DOCKER compose exec superset superset fab import-roles --path /app/roles/public.json
-	
+
     #
     # Install Airbyte and update credentials
     #
@@ -130,7 +130,7 @@ function install() {
 	$CAT $PWD/support/airbyte/values.yml \
 		| $SED "s/\$STACK_PASSWORD/$STACK_PASSWORD/" \
 	> $PWD/.airbyte.yml
-	
+
     $ABCTL local install --values $PWD/.airbyte.yml --port 4871 --no-browser
     $ABCTL local credentials --email "$STACK_LOGIN_EMAIL" --password "$STACK_LOGIN_PASSWORD" &> /dev/null
 }
@@ -147,8 +147,8 @@ function update() {
 	if [[ "$1" != "true" ]]; then
 		$DOCKER compose --compatibility down
 		$GIT pull origin --recurse-submodules
-	fi 
-	
+	fi
+
     migrate
 
 	#

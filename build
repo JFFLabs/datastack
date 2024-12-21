@@ -1,0 +1,14 @@
+#!/bin/bash
+
+dkr=$(which docker)
+dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+source $dir/.env
+
+rm -rf $dir/dist
+$dkr build --tag jfforg/$PKG_NAME:${1:-PKG_VTAG} .
+mkdir $dir/dist
+
+for out in "purge setup"; do
+	envsubst '$PKG_NAME $PKG_VTAG' < $dir/$out > $dir/dist/$out
+done
