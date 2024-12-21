@@ -8,7 +8,9 @@ fi
 dkr=$(which docker)
 dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-source $dir/.env
+set -a
+. $dir/.env
+set +a
 
 $dkr swarm leave --force &> /dev/null
 $dkr network rm $PKG_NAME &> /dev/null

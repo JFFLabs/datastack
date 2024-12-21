@@ -6,8 +6,13 @@ if [[ $(whoami) != "root" ]]; then
 fi
 
 lsb=$(which lsb_release)
+dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-if [[  == "" ]]; then
+set -a
+. $dir/.env
+set +a
+
+if [[ $lsb == "" ]]; then
 	echo "LSB release could not be located, please install 'lsb_release'"
 	exit 2
 fi
@@ -18,23 +23,23 @@ setup_common() {
 	git=$(which git)
 	dkr=$(which docker)
 
-	if [[  == "" ]]; then
+	if [[ $dkr == "" ]]; then
 		curl -fsSL https://get.docker.com -o get-docker.sh | bash
 
 		dkr=$(which docker)
 	fi
 
-	 swarm init --advertise-addr  > /dev/null
+	$dkr swarm init --advertise-addr $adr > /dev/null
 
-	tokn=$( swarm join-token worker -q)
+	tokn=$($dkr swarm join-token worker -q)
 	sock=$(systemctl show docker.socket | grep Listen\= | awk '{ split($1, a, "="); print a[2]  }')
 
-	 network create --driver overlay --attachable datastack > /dev/null
-	 container create -t --name datastack --network datastack --restart always -v :/run/docker.sock -v datastack:/data jfforg/datastack:alpha > /dev/null
-	 start datastack > /dev/null
+	$dkr network create --driver overlay --attachable datastack > /dev/null
+	$dkr container create -t --name datastack --network datastack --restart always -v $sock:/run/docker.sock -v datastack:/data jfforg/datastack:alpha > /dev/null
+	$dkr start datastack > /dev/null
 
 	echo "#!/bin/bash" > /usr/sbin/stack
-	echo " exec -t datastack stack \"\$@\"" >> /usr/sbin/stack
+	echo "$dkr exec -t datastack stack \"\$@\"" >> /usr/sbin/stack
 	chmod 755 /usr/sbin/stack
 
 	/usr/sbin/stack install
@@ -46,12 +51,12 @@ setup_debian() {
 	setup_common
 }
 
-case "$( -i -s)" in
+case "$($lsb -i -s)" in
 	"Debian")
 		setup_debian
 		;;
 	*)
-		echo "System of type '' is not supported"
+		echo "System of type '$release' is not supported"
 		exit 3
 esac
 

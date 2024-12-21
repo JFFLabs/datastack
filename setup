@@ -8,7 +8,9 @@ fi
 lsb=$(which lsb_release)
 dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-source $dir/.env
+set -a
+. $dir/.env
+set +a
 
 if [[ $lsb == "" ]]; then
 	echo "LSB release could not be located, please install 'lsb_release'"
