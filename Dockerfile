@@ -1,6 +1,7 @@
 FROM debian:bookworm
 
 COPY ./docker /build
+COPY ./.env /.env
 RUN apt-get update && apt-get install -y wget git gnupg software-properties-common iproute2 ca-certificates openssh-client
 
 RUN wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null

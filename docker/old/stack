@@ -1,0 +1,199 @@
+#!/bin/bash
+
+# Directory where migration scripts are stored
+MIGRATIONS_DIR="$PWD/migrations"
+
+CAT="$(which cat)"
+SED="$(which sed)"
+BASH="$(which bash)"
+CURL="$(which curl)"
+DOCKER="$(which docker)"
+ABCTL="$(which abctl)"
+JQ="$(which jq)"
+
+
+# Get the current version from a file (or database if you prefer)
+function get_current_version() {
+    if [ -f $PWD/.ver.current ]; then
+        cat $PWD/.ver.current
+    else
+        echo "0"
+    fi
+}
+
+# Update the current version file
+function update_current_version() {
+    echo "$1" > $PWD/.ver.current
+}
+
+# Run a migration script
+function run_migration() {
+    local migration="$1"
+    echo "Running migration: $migration"
+    $BASH "$migration"
+    if [ $? -ne 0 ]; then
+        echo "Migration failed: $migration"
+        exit 1
+    fi
+}
+
+function migrate() {
+    # Main script logic
+    current_version=$(get_current_version)
+
+    # Find and execute new migrations
+    for migration in $(ls "$MIGRATIONS_DIR"/*.sh | sort); do
+        migration_version=$(basename "$migration" | cut -d '_' -f 1)
+
+        if [[ "$migration_version" > "$current_version" ]]; then
+            run_migration "$migration"
+            update_current_version "$migration_version"
+        fi
+    done
+}
+
+
+function install() {
+
+	$dkr swarm init --advertise-addr $adr > /dev/null
+	tokn=$($dkr swarm join-token worker -q)
+
+	$dkr network create --driver overlay --attachable $PKG_NAME > /dev/null
+	$dkr update $PKG_NAME --network $PKG_NAME
+
+    if [[ $ABCTL = "" ]]; then
+        curl -LsfS https://get.airbyte.com | $BASH -
+    fi
+
+    #
+    # Create a Potgres Cert
+    #
+
+    openssl req -new -x509 -days 36500 -nodes -text \
+        -out $PWD/support/postgres/server.crt -keyout $PWD/support/postgres/server.key \
+        -subj "/CN=postgres"
+
+    chmod 600 $PWD/support/postgres/server.*
+    chown 999 $PWD/support/postgres/server.*
+
+    #
+    # Update set recurring configs, run migrations
+    #
+
+    update true
+    source $PWD/.env
+    docker compose --compatibility up -d
+
+    #
+    # Await Postgres and update credentials
+
+    until PGPASSWORD=$STACK_PASSWORD psql -w -q -h localhost -U postgres -c "SELECT 1" &>/dev/null
+    do
+        sleep 3
+    done
+
+    PGPASSWORD=$STACK_PASSWORD psql -w -q -h localhost -U postgres \
+        -c "ALTER USER internal WITH PASSWORD '$STACK_LOGIN_PASSWORD'"
+
+    #
+    # Update Superset credentials
+    #
+
+    while :
+    do
+        token=$($CURL "https://superset.$STACK_DOMAIN/api/v1/security/login" -s -k -X POST \
+            --resolve superset.$STACK_DOMAIN:443:127.0.0.1 \
+            -H 'Content-Type: application/json' \
+            -d '{
+                "username":"admin",
+                "password":"admin",
+                "provider":"db"
+            }' \
+        | jq -r '.access_token // empty')
+
+        sleep 5
+
+        if [[ "$token" != "" ]]; then
+            $CURL "https://superset.$STACK_DOMAIN/api/v1/security/users/1" -s -k -X PUT \
+                --resolve superset.$STACK_DOMAIN:443:127.0.0.1 \
+                -H 'Content-Type: application/json' \
+                -H 'Authorization: Bearer '"$token"'' \
+                -d '{
+                    "email":"'$STACK_LOGIN_EMAIL'",
+                    "username":"'$STACK_LOGIN_EMAIL'",
+                    "password":"'$STACK_LOGIN_PASSWORD'"
+                }' \
+            > /dev/null
+            break
+        fi
+    done
+
+	$DOCKER compose exec superset superset fab import-roles --path /app/roles/public.json
+
+    #
+    # Install Airbyte and update credentials
+    #
+
+	$CAT $PWD/support/airbyte/values.yml \
+		| $SED "s/\$STACK_PASSWORD/$STACK_PASSWORD/" \
+	> $PWD/.airbyte.yml
+
+    $ABCTL local install --values $PWD/.airbyte.yml --port 4871 --no-browser
+    $ABCTL local credentials --email "$STACK_LOGIN_EMAIL" --password "$STACK_LOGIN_PASSWORD" &> /dev/null
+}
+
+function uninstall() {
+    $DOCKER compose --compatibility down -v
+    $ABCTL local uninstall
+    rm -f $PWD/.ver.current
+    rm -f $PWD/.airbyte.yml
+    rm -f $PWD/.env*
+}
+
+function update() {
+	if [[ "$1" != "true" ]]; then
+		$DOCKER compose --compatibility down
+		$GIT pull origin --recurse-submodules
+	fi
+
+    migrate
+
+	#
+	# Recurring Copies
+	#
+
+	cp $PWD/support/superset/install.pip $PWD/superset/docker/requirements-local.txt
+
+    $DOCKER compose --compatibility up -d
+}
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <subcommand> [options]"
+    exit 1
+fi
+
+subcommand="$1"
+shift
+
+if [[ $(/usr/bin/id -u) -ne 0 ]]; then
+    echo "Not running as root"
+    exit
+fi
+
+case "$subcommand" in
+    "install")
+        install
+        exit 0
+        ;;
+    "update")
+        update
+        exit 0
+        ;;
+    "uninstall")
+        uninstall
+        exit 0
+        ;;
+esac
+
+echo "Invalid subcommand: $subcommand"
+exit 1

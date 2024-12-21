@@ -1,0 +1,21 @@
+global:
+  database:
+    type: internal
+    host: postgres
+    port: 5432
+    database: _ds_airbyte
+    user: postgres
+    password: $STACK_PASSWORD
+
+postgresql:
+  enabled: false
+
+temporal:
+  enabled: true
+  extraEnv:
+    - name: DBNAME
+      value: "_ds_airbyte_temporal"
+    - name: VISIBILITY_DBNAME
+      value: "_ds_airbyte_temporal_visibility"
+    - name: SKIP_DB_CREATE
+      value: "true"

@@ -13,23 +13,36 @@ Data Stack is not a custom solution, rather, it is a tool for wrapping and integ
 
 ## Prerequisites
 
-- Install Docker
+- OAuth+OID identity provider
+- The `wget` command installed
+- The `bash` shell installed
 
-## Install / Setup
+## Setup and Installation
 
-To begin using Data Stack, you will want to decide first and foremost on your chosen infrastructure pathway.  We've made that choice easier by only supporting two options out of the box:
+From a [compatible system](#compatibility) execute the following:
 
-1. AWS (Recommended)
-2. Local
+```
+wget -O- https://setup.datastack.jff.org/ | sudo bash
+```
 
-### AWS
+This script will:
 
-Installing with `docker run -v datastack:/data jff/datastack install --aws` will require you to have an AWS account and some additional information on hand.  Specifically:
+1. Install additional dependencies via your OS package manager
+2. Create a docker container for:
+   1. Executing `stack` commands
+   2. Tracking installation / configuration state
+3. Create the `/usr/sbin/stack` wrapper
 
-- AWS Key
-- AWS Secret
+Once complete, you're ready to install:
 
-## Command References
+```
+sudo stack install
+```
 
+If you prefer to install service across multiple systems
+
+```
+sudo stack install --swarm=aws
+```
 
 

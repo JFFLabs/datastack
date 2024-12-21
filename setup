@@ -5,6 +5,7 @@ if [[ $(whoami) != "root" ]]; then
 	exit 1
 fi
 
+ops=$(uname)
 lsb=$(which lsb_release)
 dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -12,30 +13,29 @@ set -a
 . $dir/.env
 set +a
 
-if [[ $lsb == "" ]]; then
-	echo "LSB release could not be located, please install 'lsb_release'"
-	exit 2
-fi
-
 setup_common() {
-	adr=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
-	ipt=$(which ip)
-	git=$(which git)
 	dkr=$(which docker)
 
 	if [[ $dkr == "" ]]; then
 		curl -fsSL https://get.docker.com -o get-docker.sh | bash
 
+		if [[ "$?" != "0 "]]; then
+			echo "Unable to install docker, please install manually and try again."
+			exit 4
+		fi
+
 		dkr=$(which docker)
 	fi
 
-	$dkr swarm init --advertise-addr $adr > /dev/null
-
-	tokn=$($dkr swarm join-token worker -q)
-	sock=$(systemctl show docker.socket | grep Listen\= | awk '{ split($1, a, "="); print a[2]  }')
+	ipt=$(which ip)
+	git=$(which git)
+	sed=$(which sed)
+	awk=$(which awk)
+	adr=$($ipt route get 1 | $sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
+	sck=$(systemctl show docker.socket | grep Listen\= | $awk '{ split($1, a, "="); print a[2]  }')
 
 	$dkr network create --driver overlay --attachable $PKG_NAME > /dev/null
-	$dkr container create -t --name $PKG_NAME --network $PKG_NAME --restart always -v $sock:/run/docker.sock -v $PKG_NAME:/data jfforg/$PKG_NAME:$PKG_VTAG > /dev/null
+	$dkr container create -t --name $PKG_NAME  --network $PKG_NAME --restart always -v $sck:/run/docker.sock -v $PKG_NAME:/data jfforg/$PKG_NAME:$PKG_VTAG > /dev/null
 	$dkr start $PKG_NAME > /dev/null
 
 	echo "#!/bin/bash" > /usr/sbin/stack
@@ -51,14 +51,36 @@ setup_debian() {
 	setup_common
 }
 
-case "$($lsb -i -s)" in
-	"Debian")
-		setup_debian
-		;;
-	*)
-		echo "System of type '$release' is not supported"
-		exit 3
-esac
+setup_darwin() {
+
+}
+
+if [[ $ops == "Linux" ]]; then
+	if [[ $lsb == "" ]]; then
+		echo "LSB release could not be located, please install 'lsb_release'"
+		exit 2
+	fi
+
+	rel=$($lsb -i -s)
+
+	case "$rel" in
+		"Debian")
+			setup_debian
+			;;
+		*)
+			echo "System of type '$rel' is not supported"
+			exit 3
+	esac
+
+elif [[ $ops == "Darwin" ]]; then
+	setup_darwin
+
+else
+	echo "System of type '$ops' is not supported"
+	exit 100
+
+fi
+
 
 
 

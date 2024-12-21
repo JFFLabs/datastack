@@ -12,7 +12,8 @@ set -a
 . $dir/.env
 set +a
 
-$dkr swarm leave --force &> /dev/null
+/usr/sbin/stack uninstall
+
 $dkr network rm $PKG_NAME &> /dev/null
 $dkr update --restart=no $PKG_NAME &> /dev/null
 $dkr stop $PKG_NAME &> /dev/null

@@ -1,0 +1,205 @@
+configs:
+  pgpass:
+    content: postgres:5432:*:internal:$STACK_LOGIN_PASSWORD
+  servers.json:
+    content: |
+      {"Servers": {"1": {
+        "Group": "Servers",
+        "Name": "Postgres",
+        "Host": "postgres",
+        "Port": 5432,
+        "MaintenanceDB": "postgres",
+        "Username": "internal",
+        "PassFile": "/.pgpass"
+      }}}
+
+services:
+  caddy:
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - kind
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - $PWD/support/caddy/config:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - EMAIL=$STACK_EMAIL
+      - DOMAIN=$STACK_DOMAIN
+
+  redis:
+    image: redis:7.4.1
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+        - kind
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: postgres:17.2
+    restart: unless-stopped
+    env_file:
+      - .env
+      - .env.postgres
+    shm_size: 512mb
+    networks:
+      - kind
+    ports:
+      - "5432:5432"
+    command: >
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/server.crt
+      -c ssl_key_file=/var/lib/postgresql/server.key
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - $PWD/support/postgres/server.crt:/var/lib/postgresql/server.crt
+      - $PWD/support/postgres/server.key:/var/lib/postgresql/server.key
+      - $PWD/support/postgres/initdb.d:/docker-entrypoint-initdb.d
+
+  postgres_admin:
+    image: dpage/pgadmin4:8.13
+    restart: unless-stopped
+    entrypoint: >
+        /bin/sh -c "
+            user=$$(echo $STACK_LOGIN_EMAIL | sed 's/@/_/')
+            mkdir -pm 700 /var/lib/pgadmin/storage/$$user
+            cp /.pgpass /var/lib/pgadmin/storage/$$user/
+            chmod 0600 /var/lib/pgadmin/storage/$$user/.pgpass
+            /entrypoint.sh
+        "
+    env_file:
+      - .env
+      - .env.postgres
+    networks:
+      - kind
+    volumes:
+      - postgres_admin_data:/var/lib/pgadmin
+    configs:
+      - source: pgpass
+        target: /.pgpass
+      - source: servers.json
+        target: /pgadmin4/servers.json
+
+  baserow:
+    image: baserow/baserow:1.29.3
+    restart: unless-stopped
+    env_file:
+      - .env
+      - .env.baserow
+    depends_on:
+      - postgres
+    networks:
+      - kind
+    volumes:
+      - baserow_data:/baserow/data
+    environment:
+      - BASEROW_EXTRA_ALLOWED_HOSTS=baserow,baserow.$STACK_DOMAIN
+
+  superset:
+    image: apache/superset:4.1.1
+    command: ["/app/docker/docker-bootstrap.sh", "app-gunicorn"]
+    restart: unless-stopped
+    user: root
+    env_file:
+      - .env
+      - .env.superset
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - kind
+    volumes:
+      - superset_home:/app/superset_home
+      - $PWD/superset/docker:/app/docker
+      - $PWD/support/superset/config.py:/app/pythonpath/superset_config.py
+      - $PWD/support/superset/public.json:/app/roles/public.json
+    environment:
+      - SUPERSET_PORT=80
+
+  superset_init:
+    image: apache/superset:4.1.1
+    command: ["/app/docker/docker-init.sh"]
+    user: root
+    env_file:
+      - .env
+      - .env.superset
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - kind
+    volumes:
+      - superset_home:/app/superset_home
+      - $PWD/superset/docker:/app/docker
+      - $PWD/support/superset/config.py:/app/pythonpath/superset_config.py
+    environment:
+      - SUPERSET_LOAD_EXAMPLES=no
+    healthcheck:
+      disable: true
+
+  superset_worker:
+    image: apache/superset:4.1.1
+    command: ["/app/docker/docker-bootstrap.sh", "worker"]
+    restart: unless-stopped
+    user: root
+    env_file:
+      - .env
+      - .env.superset
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - kind
+    volumes:
+      - superset_home:/app/superset_home
+      - $PWD/superset/docker:/app/docker
+      - $PWD/support/superset/config.py:/app/pythonpath/superset_config.py
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A superset.tasks.celery_app:app inspect ping -d celery@$$HOSTNAME",
+        ]
+
+  superset_beat:
+    image: apache/superset:4.1.1
+    command: ["/app/docker/docker-bootstrap.sh", "beat"]
+    restart: unless-stopped
+    user: root
+    env_file:
+      - .env
+      - .env.superset
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - kind
+    volumes:
+      - superset_home:/app/superset_home
+      - $PWD/superset/docker:/app/docker
+      - $PWD/support/superset/config.py:/app/pythonpath/superset_config.py
+    healthcheck:
+      disable: true
+
+networks:
+  kind:
+    name: kind
+
+volumes:
+  redis_data:
+  caddy_data:
+  caddy_config:
+  baserow_data:
+  superset_home:
+  postgres_data:
+  postgres_admin_data:
