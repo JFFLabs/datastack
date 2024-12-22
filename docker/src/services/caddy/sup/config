@@ -1,19 +1,19 @@
 https://postgres.{$DOMAIN} {
-	tls {$EMAIL}
+	tls {$ADMIN_EMAIL}
 	reverse_proxy http://postgres_admin
 }
 
 https://baserow.{$DOMAIN} {
-	tls {$EMAIL}
+	tls {$ADMIN_EMAIL}
 	reverse_proxy http://baserow
 }
 
 https://superset.{$DOMAIN} {
-	tls {$EMAIL}
+	tls {$ADMIN_EMAIL}
 	reverse_proxy http://superset
 }
 
 https://airbyte.{$DOMAIN} {
-	tls {$EMAIL}
+	tls {$ADMIN_EMAIL}
 	reverse_proxy http://airbyte-abctl-control-plane
 }

@@ -12,12 +12,14 @@ set -a
 . $dir/.env
 set +a
 
-/usr/sbin/stack uninstall
+if [ -f "/usr/sbin/stack" ]; then
+	/usr/sbin/stack uninstall
+fi
 
-$dkr network rm $PKG_NAME &> /dev/null
 $dkr update --restart=no $PKG_NAME &> /dev/null
 $dkr stop $PKG_NAME &> /dev/null
 $dkr container rm $PKG_NAME  &> /dev/null
 $dkr volume rm $PKG_NAME &> /dev/null
 
 rm -f /usr/sbin/stack
+rm -f /$PKG_NAME

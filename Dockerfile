@@ -1,15 +1,21 @@
 FROM debian:bookworm
+ARG PKG_NAME
 
-COPY ./docker /build
-COPY ./.env /.env
-RUN apt-get update && apt-get install -y wget git gnupg software-properties-common iproute2 ca-certificates openssh-client
-
-RUN wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
-RUN echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
-RUN wget -O- https://get.docker.com | bash
 RUN apt-get update
-RUN apt-get install -y terraform
+RUN apt-get install -y wget gnupg ca-certificates software-properties-common
 
-ENV PATH="/build:$PATH"
+RUN wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor --yes -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com bookworm main" | tee /etc/apt/sources.list.d/hashicorp.list
+
+RUN wget -O- https://download.docker.com/linux/debian/gpg | gpg --dearmor --yes -o /usr/share/keyrings/docker.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+RUN apt-get update
+RUN apt-get install -y iproute2 openssh-client git jq terraform docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin iputils-ping
+
+COPY ./docker /app
+COPY ./.env /app/.env
+
+ENV PATH="/app:$PATH"
 
 CMD ["sleep", "infinity"]

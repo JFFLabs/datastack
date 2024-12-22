@@ -7,9 +7,8 @@ set -a
 . $dir/.env
 set +a
 
-rm -rf $dir/dist
-$dkr build --tag jfforg/$PKG_NAME:${1:-$PKG_VTAG} .
-mkdir $dir/dist
+rm -rf $dir/dist/*
+$dkr --debug build --no-cache --build-arg PKG_NAME=$PKG_NAME --tag jfforg/$PKG_NAME:${1:-$PKG_VTAG} .
 
 for out in "purge" "setup"; do
 	cat $dir/$out | envsubst '$PKG_NAME $PKG_VTAG' > $dir/dist/$out

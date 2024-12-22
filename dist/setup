@@ -5,6 +5,7 @@ if [[ $(whoami) != "root" ]]; then
 	exit 1
 fi
 
+ops=$(uname)
 lsb=$(which lsb_release)
 dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -12,37 +13,35 @@ set -a
 . $dir/.env
 set +a
 
-if [[ $lsb == "" ]]; then
-	echo "LSB release could not be located, please install 'lsb_release'"
-	exit 2
-fi
-
 setup_common() {
-	adr=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
-	ipt=$(which ip)
-	git=$(which git)
 	dkr=$(which docker)
 
 	if [[ $dkr == "" ]]; then
 		curl -fsSL https://get.docker.com -o get-docker.sh | bash
 
+		if [[ "$?" != "0" ]]; then
+			echo "Unable to install docker, please install manually and try again."
+			exit 4
+		fi
+
 		dkr=$(which docker)
 	fi
 
-	$dkr swarm init --advertise-addr $adr > /dev/null
+	ipt=$(which ip)
+	git=$(which git)
+	sed=$(which sed)
+	awk=$(which awk)
+	adr=$($ipt route get 1 | $sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
+	sck=$(systemctl show docker.socket | grep Listen\= | $awk '{ split($1, a, "="); print a[2]  }')
 
-	tokn=$($dkr swarm join-token worker -q)
-	sock=$(systemctl show docker.socket | grep Listen\= | awk '{ split($1, a, "="); print a[2]  }')
-
-	$dkr network create --driver overlay --attachable datastack > /dev/null
-	$dkr container create -t --name datastack --network datastack --restart always -v $sock:/run/docker.sock -v datastack:/data jfforg/datastack:alpha > /dev/null
+	$dkr container create -t --privileged --name datastack  --restart always -v $sck:/run/docker.sock -v datastack:/datastack --add-host host.docker.internal=host-gateway $PKG_DIST/datastack:alpha > /dev/null
 	$dkr start datastack > /dev/null
 
 	echo "#!/bin/bash" > /usr/sbin/stack
 	echo "$dkr exec -t datastack stack \"\$@\"" >> /usr/sbin/stack
 	chmod 755 /usr/sbin/stack
 
-	/usr/sbin/stack install
+	ln -s "$($dkr volume inspect datastack | jq -r .[0].Mountpoint)" /datastack
 }
 
 setup_debian() {
@@ -51,14 +50,36 @@ setup_debian() {
 	setup_common
 }
 
-case "$($lsb -i -s)" in
-	"Debian")
-		setup_debian
-		;;
-	*)
-		echo "System of type '$release' is not supported"
-		exit 3
-esac
+setup_darwin() {
+	echo
+}
+
+if [[ $ops == "Linux" ]]; then
+	if [[ $lsb == "" ]]; then
+		echo "LSB release could not be located, please install 'lsb_release'"
+		exit 2
+	fi
+
+	rel=$($lsb -i -s)
+
+	case "$rel" in
+		"Debian")
+			setup_debian
+			;;
+		*)
+			echo "System of type '$rel' is not supported"
+			exit 3
+	esac
+
+elif [[ $ops == "Darwin" ]]; then
+	setup_darwin
+
+else
+	echo "System of type '$ops' is not supported"
+	exit 100
+
+fi
+
 
 
 

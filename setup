@@ -19,7 +19,7 @@ setup_common() {
 	if [[ $dkr == "" ]]; then
 		curl -fsSL https://get.docker.com -o get-docker.sh | bash
 
-		if [[ "$?" != "0 "]]; then
+		if [[ "$?" != "0" ]]; then
 			echo "Unable to install docker, please install manually and try again."
 			exit 4
 		fi
@@ -34,15 +34,14 @@ setup_common() {
 	adr=$($ipt route get 1 | $sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 	sck=$(systemctl show docker.socket | grep Listen\= | $awk '{ split($1, a, "="); print a[2]  }')
 
-	$dkr network create --driver overlay --attachable $PKG_NAME > /dev/null
-	$dkr container create -t --name $PKG_NAME  --network $PKG_NAME --restart always -v $sck:/run/docker.sock -v $PKG_NAME:/data jfforg/$PKG_NAME:$PKG_VTAG > /dev/null
+	$dkr container create -t --privileged --name $PKG_NAME  --restart always -v $sck:/run/docker.sock -v $PKG_NAME:/$PKG_NAME --add-host host.docker.internal=host-gateway $PKG_DIST/$PKG_NAME:$PKG_VTAG > /dev/null
 	$dkr start $PKG_NAME > /dev/null
 
 	echo "#!/bin/bash" > /usr/sbin/stack
 	echo "$dkr exec -t $PKG_NAME stack \"\$@\"" >> /usr/sbin/stack
 	chmod 755 /usr/sbin/stack
 
-	/usr/sbin/stack install
+	ln -s "$($dkr volume inspect $PKG_NAME | jq -r .[0].Mountpoint)" /$PKG_NAME
 }
 
 setup_debian() {
@@ -52,7 +51,7 @@ setup_debian() {
 }
 
 setup_darwin() {
-
+	echo
 }
 
 if [[ $ops == "Linux" ]]; then

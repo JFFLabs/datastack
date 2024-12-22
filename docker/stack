@@ -2,14 +2,19 @@
 declare -Ax OPTS
 declare -ax ARGS
 
-cd "$( dirname "${BASH_SOURCE[0]}" )"
+APP="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-ENV="$(pwd)/../data/.env"
+. $APP/.env
 
-touch $ENV
-. $ENV
-. ../.env
+VOL="/$PKG_NAME"
+RUN="$VOL/run"
 
+if [ ! -d "$RUN" ]; then
+    mkdir $RUN
+    touch $RUN/.env
+fi
+
+. $RUN/.env
 
 goto() {
     local dir="$(pwd)/$1"
@@ -19,7 +24,7 @@ goto() {
         exit 1
     fi
 
-    cd $dir
+    echo $dir
 }
 
 while [[ $# -gt 0 ]]; do
@@ -50,12 +55,12 @@ done
 
 set -- "${ARGS[@]}"
 
-goto "cmd"
+cd $APP/cmd
 
 dkr=$(which docker)
 
 for sub in $ARGS; do
-    goto $sub
+    cd $(goto $sub)
 done
 
 if [[ $help == "1" ]]; then
