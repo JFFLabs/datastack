@@ -3,42 +3,106 @@ if [[ "$INSTALLED" != "" ]]; then
 	exit 2
 fi
 
-cp -R /app/src/* /$VOL
+cp -R /app/src/* /$APP
 
-echo "VOL=$VOL" >> $RUN/.env
+echo "APP=$APP" >> $RUN/.env
 echo "RUN=$RUN" >> $RUN/.env
 
+#
+# Initialize and connect to network
+#
+
 if [[ "$swarm" != "" ]]; then
-	$dkr swarm init > /dev/null
-	$dkr network create --driver overlay --attachable $PKG_NAME > /dev/null
-	tokn=$($dkr swarm join-token worker -q)
+	$docker swarm init > /dev/null
+	$docker network create --driver overlay --attachable $PKG_NAME > /dev/null
+	tokn=$($docker swarm join-token worker -q)
 	echo "SWARM_TOKEN=$tokn" >> $RUN/.env
 else
-	$dkr network create $PKG_NAME > /dev/null
+	$docker network create $PKG_NAME > /dev/null
 fi
 
-$dkr network disconnect bridge $PKG_NAME
-$dkr network connect $PKG_NAME $PKG_NAME
+$docker network disconnect bridge $PKG_NAME
+$docker network connect $PKG_NAME $PKG_NAME
 
-if [[ "$services" != "" ]]; then
-	services=${services//,/ }
+#
+# Generate and collect basic runtime information
+#
+
+if [[ "$domain" == "" ]]; then
+	read -p "Enter your domain (e.g. labs.jff.org): " domain
+fi
+
+if [[ "$email" == "" ]]; then
+	read -p "Enter an administrator e-mail: " email
+fi
+
+if [[ ! "$email" =~ "@" ]]; then
+	email="$email@$domain"
+fi
+
+if [[ ! "$internal" == "" ]]; then
+	internal=0
+fi
+
+if [[ "$key" == "" ]]; then
+	key="$(cat /proc/sys/kernel/random/uuid)"
+fi
+
+if [[ "$secret" == "" ]]; then
+	secret="$(cat /proc/sys/kernel/random/uuid)"
+fi
+
+while true; do
+	read -s -p "Please enter a password: " password
+	echo
+	read -s -p "Confirm your password: " password_confirmation
+	echo
+	[[ "$password" == "$password_confirmation" ]] && break
+	echo "Please try again"
+done
+
+#
+# Write and re-source our runtime environment
+#
+
+echo "KEY=$KEY"           >> $RUN/.env
+echo "EMAIL=$email"       >> $RUN/.env
+echo "DOMAIN=$domain"     >> $RUN/.env
+echo "SECRET=$secret"     >> $RUN/.env
+echo "PASSWORD=$password" >> $RUN/.env
+echo "INTERNAL=$internal" >> $RUN/.env
+echo "INSTALLED=1"        >> $RUN/.env
+
+. $RUN/.env
+
+#
+# Install selected services, or all if none were specified
+#
+
+if [[ ! "$services" == "" ]]; then
+	SERVICES=${services//,/ }
 else
-	services=$(ls -1 $VOL/services)
+	SERVICES=$(ls -1 $APP/services)
 fi
 
-for i in $services; do
-	touch $RUN/.env.$i
-	mkdir $RUN/$i
+for SRV in $SERVICES; do
+	LOT="$RUN/$SRV"
+	ENV="$RUN/.env.$SRV"
+	SRC="$APP/services/$SRV"
 
-	cd $VOL/services/$i
+	mkdir $LOT
+	touch $ENV
+
+	echo "LOT=$LOT" >> $ENV
+	echo "SRC=$SRC" >> $ENV
+
+	cd $SRC
 
 	if [[ -e "install.sh" ]]; then
 		. install.sh
 	fi
 
 	if [[ -e "compose.yml" ]]; then
-		$dkr compose --env-file $APP/.env --env-file $RUN/.env up -d
+		$docker compose --env-file $APP/.env --env-file $RUN/.env --env-file $ENV up -d
 	fi
 done
-
-echo "INSTALLED=1" >> $RUN/.env

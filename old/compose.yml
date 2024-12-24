@@ -14,57 +14,7 @@ configs:
       }}}
 
 services:
-  caddy:
-    image: caddy:2.9-alpine
-    restart: unless-stopped
-    env_file:
-      - .env
-    cap_add:
-      - NET_ADMIN
-    networks:
-      - kind
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - $PWD/support/caddy/config:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    environment:
-      - EMAIL=$STACK_EMAIL
-      - DOMAIN=$STACK_DOMAIN
 
-  redis:
-    image: redis:7.4.1
-    restart: unless-stopped
-    env_file:
-      - .env
-    networks:
-        - kind
-    volumes:
-      - redis_data:/data
-
-  postgres:
-    image: postgres:17.2
-    restart: unless-stopped
-    env_file:
-      - .env
-      - .env.postgres
-    shm_size: 512mb
-    networks:
-      - kind
-    ports:
-      - "5432:5432"
-    command: >
-      -c ssl=on
-      -c ssl_cert_file=/var/lib/postgresql/server.crt
-      -c ssl_key_file=/var/lib/postgresql/server.key
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - $PWD/support/postgres/server.crt:/var/lib/postgresql/server.crt
-      - $PWD/support/postgres/server.key:/var/lib/postgresql/server.key
-      - $PWD/support/postgres/initdb.d:/docker-entrypoint-initdb.d
 
   postgres_admin:
     image: dpage/pgadmin4:8.13

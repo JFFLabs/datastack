@@ -3,9 +3,6 @@ services:
     image: caddy:2.9-alpine
     restart: unless-stopped
     container_name: ${PKG_NAME}-caddy
-    env_file:
-      - path: $RUN/.env.caddy
-        required: true
     cap_add:
       - NET_ADMIN
     networks:
@@ -15,7 +12,7 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      - $VOL/services/caddy/sup/config:/etc/caddy/Caddyfile
+      - $SRC/config:/etc/caddy/Caddyfile
       - data:/data
       - config:/config
 

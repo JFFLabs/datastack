@@ -1,7 +1,11 @@
-openssl req -new -x509 -days 36500 -nodes -text \
+openssl req -new -x509 -nodes -text \
+    -days 36500 \
     -subj "/CN=postgres" \
-    -out $RUN/postgres/server.crt \
-	-keyout $RUN/postgres/server.key &> /dev/null
+    -out $LOT/server.crt \
+	-keyout $LOT/server.key \
+&> /dev/null
 
-chmod 600 $RUN/postgres/server.*
-chown 999 $RUN/postgres/server.*
+chmod 600 $LOT/server.*
+chown 999 $LOT/server.*
+
+echo "POSTGRES_PASSWORD=\$SECRET" >> $ENV

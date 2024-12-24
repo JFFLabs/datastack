@@ -3,11 +3,8 @@ services:
     image: redis:7.4.1
     restart: unless-stopped
     container_name: ${PKG_NAME}-redis
-    env_file:
-      - path: $RUN/.env.redis
-        required: true
     networks:
-        - default
+      - default
     volumes:
       - data:/data
 

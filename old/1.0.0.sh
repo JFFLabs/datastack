@@ -1,26 +1,6 @@
-secret="$(cat /proc/sys/kernel/random/uuid)"
-password="$(cat /proc/sys/kernel/random/uuid)"
 
-read -p "Enter your domain (e.g. labs.jff.org): " domain
-read -p "Enter an administrator e-mail: " email
-
-if [[ ! "$email" =~ "@" ]]; then
-    login="$email@$domain"
-else
-    login="$email"
-fi
-
-while true; do
-    read -s -p "Please enter a password: " login_password
-    echo
-    read -s -p "Confirm your password: " login_password_confirmation
-    echo
-    [ "$login_password" = "$login_password_confirmation" ] && break
-    echo "Please try again"
-done
 
 touch .env.postgres
-echo "POSTGRES_PASSWORD=\$STACK_PASSWORD" >> .env.postgres
 echo "PGADMIN_DEFAULT_EMAIL=\$STACK_LOGIN_EMAIL" >> .env.postgres
 echo "PGADMIN_DEFAULT_PASSWORD=\$STACK_LOGIN_PASSWORD" >> .env.postgres
 

@@ -3,35 +3,49 @@ if [[ "$INSTALLED" == "" ]]; then
 	exit 2
 fi
 
-if [[ $SWARM_TOKEN != "" ]]; then
-	$dkr swarm leave --force
+if [[ "$SWARM_TOKEN" != "" ]]; then
+	$docker swarm leave --force
 fi
 
-if [[ "$services" != "" ]]; then
-	services=${services//,/ }
+#
+# Uninstall selected services or all if none were specified
+#
+
+if [[ ! "$services" == "" ]]; then
+	SERVICES=${services//,/ }
 else
-	services=$(ls -1 $VOL/services)
+	SERVICES=$(ls -1 $APP/services)
 fi
 
-for i in $services; do
-	cd $VOL/services/$i
+for SRV in $SERVICES; do
+	LOT="$RUN/$SRV"
+	ENV="$RUN/.env.$SRV"
+	SRC="$APP/services/$SRV"
+
+	cd $SRC
+
+	. $ENV
 
 	if [[ -e "uninstall.sh" ]]; then
-		. install.sh
+		. uninstall.sh
 	fi
 
 	if [[ -e "compose.yml" ]]; then
-		$dkr compose --env-file $APP/.env --env-file $RUN/.env down -v
+		$docker compose --env-file $APP/.env --env-file $RUN/.env --env-file $ENV down -v
 	fi
 
-	rm -f $RUN/.env.$i
-	rm -rf $RUN/$i
+	rm -rf $LOT
+	rm -f  $ENV
 done
 
+#
+# Disconnect and remove the network, clear the environment, if no more services are left
+#
+
 if [ ! -f $RUN/.env.* ]; then
-	$dkr network disconnect $PKG_NAME $PKG_NAME
-	$dkr network connect bridge $PKG_NAME
-	$dkr network rm $PKG_NAME &> /dev/null
+	$docker network disconnect $PKG_NAME $PKG_NAME
+	$docker network connect bridge $PKG_NAME
+	$docker network rm $PKG_NAME &> /dev/null
 
 	echo > $RUN/.env
 fi

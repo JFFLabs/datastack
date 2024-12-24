@@ -2,12 +2,12 @@
 declare -Ax OPTS
 declare -ax ARGS
 
-APP="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+PKG="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-. $APP/.env
+. $PKG/.env
 
-VOL="/$PKG_NAME"
-RUN="$VOL/run"
+APP="/$PKG_NAME"
+RUN="$APP/run"
 
 if [ ! -d "$RUN" ]; then
     mkdir $RUN
@@ -17,28 +17,28 @@ fi
 . $RUN/.env
 
 goto() {
-    local dir="$(pwd)/$1"
+    local DIR="$(pwd)/$1"
 
-    if [ ! -d "$dir" ]; then
+    if [ ! -d "$DIR" ]; then
         echo "Invalid command or subcommand '$1' in '$ARGS'"
         exit 1
     fi
 
-    echo $dir
+    echo $DIR
 }
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         -*)
-            name="${1##*-}"
+            NAME="${1##*-}"
 
-            eval "$name="1""
+            eval "$NAME="1""
 
             if [[ "$2" != "" ]]; then
                 case $2 in
                     -*) ;;
                     *)
-                        eval "$name=\"$2\""
+                        eval "$NAME=\"$2\""
                         shift 2
                     ;;
                 esac
@@ -55,12 +55,18 @@ done
 
 set -- "${ARGS[@]}"
 
-cd $APP/cmd
+cd $PKG/cmd
 
-dkr=$(which docker)
+if [[ $docker == "" ]]; then
+    docker=$(which docker)
+fi
 
-for sub in $ARGS; do
-    cd $(goto $sub)
+if [[ ! $debug == "" ]]; then
+    set -x
+fi
+
+for SUB in $ARGS; do
+    cd $(goto $SUB)
 done
 
 if [[ $help == "1" ]]; then
