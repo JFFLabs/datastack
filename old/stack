@@ -8,9 +8,6 @@ SED="$(which sed)"
 BASH="$(which bash)"
 CURL="$(which curl)"
 DOCKER="$(which docker)"
-ABCTL="$(which abctl)"
-JQ="$(which jq)"
-
 
 # Get the current version from a file (or database if you prefer)
 function get_current_version() {

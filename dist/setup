@@ -1,4 +1,5 @@
 #!/bin/bash
+set -a
 
 if [[ $(whoami) != "root" ]]; then
 	echo "Must be executed as root, try using 'sudo'"
@@ -9,9 +10,7 @@ ops=$(uname)
 lsb=$(which lsb_release)
 dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-set -a
 . $dir/.env
-set +a
 
 setup_common() {
 	dkr=$(which docker)
@@ -38,7 +37,7 @@ setup_common() {
 	$dkr start datastack > /dev/null
 
 	echo "#!/bin/bash" > /usr/sbin/stack
-	echo "$dkr exec -t datastack stack \"\$@\"" >> /usr/sbin/stack
+	echo "$dkr exec -it datastack stack \"\$@\"" >> /usr/sbin/stack
 	chmod 755 /usr/sbin/stack
 
 	ln -s "$($dkr volume inspect datastack | jq -r .[0].Mountpoint)" /datastack

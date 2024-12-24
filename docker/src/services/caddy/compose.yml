@@ -3,6 +3,11 @@ services:
     image: caddy:2.9-alpine
     restart: unless-stopped
     container_name: ${PKG_NAME}-caddy
+    env_file:
+      - path: $RUN/.env
+        required: true
+      - path: $LOT/.env
+        required: true
     cap_add:
       - NET_ADMIN
     networks:

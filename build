@@ -8,6 +8,10 @@ set -a
 set +a
 
 rm -rf $dir/dist/*
+
+sudo chmod 755 $dir/docker/cmd/*/*.sh
+sudo chmod 755 $dir/docker/src/services/*/*.sh
+
 $dkr --debug build --no-cache --build-arg PKG_NAME=$PKG_NAME --tag jfforg/$PKG_NAME:${1:-$PKG_VTAG} .
 
 for out in "purge" "setup"; do

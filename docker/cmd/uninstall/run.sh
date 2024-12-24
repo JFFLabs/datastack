@@ -14,24 +14,22 @@ fi
 if [[ ! "$services" == "" ]]; then
 	SERVICES=${services//,/ }
 else
-	SERVICES=$(ls -1 $APP/services)
+	SERVICES=$(ls -1 $APP/src/services)
 fi
 
 for SRV in $SERVICES; do
-	LOT="$RUN/$SRV"
 	ENV="$RUN/.env.$SRV"
-	SRC="$APP/services/$SRV"
-
-	cd $SRC
 
 	. $ENV
 
-	if [[ -e "uninstall.sh" ]]; then
+	cd $SRC
+
+	if [[ -x "uninstall.sh" ]]; then
 		. uninstall.sh
 	fi
 
 	if [[ -e "compose.yml" ]]; then
-		$docker compose --env-file $APP/.env --env-file $RUN/.env --env-file $ENV down -v
+		$docker compose --env-file $PKG/.env --env-file $ENV down -v
 	fi
 
 	rm -rf $LOT

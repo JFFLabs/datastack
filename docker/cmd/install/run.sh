@@ -3,10 +3,7 @@ if [[ "$INSTALLED" != "" ]]; then
 	exit 2
 fi
 
-cp -R /app/src/* /$APP
-
-echo "APP=$APP" >> $RUN/.env
-echo "RUN=$RUN" >> $RUN/.env
+cp -R /app/src $APP
 
 #
 # Initialize and connect to network
@@ -40,8 +37,8 @@ if [[ ! "$email" =~ "@" ]]; then
 	email="$email@$domain"
 fi
 
-if [[ ! "$internal" == "" ]]; then
-	internal=0
+if [[ ! "$internal" == "1" ]]; then
+	internal="0"
 fi
 
 if [[ "$key" == "" ]]; then
@@ -82,27 +79,51 @@ echo "INSTALLED=1"        >> $RUN/.env
 if [[ ! "$services" == "" ]]; then
 	SERVICES=${services//,/ }
 else
-	SERVICES=$(ls -1 $APP/services)
+	SERVICES=$(ls -1 $APP/src/services)
 fi
 
 for SRV in $SERVICES; do
 	LOT="$RUN/$SRV"
 	ENV="$RUN/.env.$SRV"
-	SRC="$APP/services/$SRV"
+	SRC="$APP/src/services/$SRV"
 
-	mkdir $LOT
+	if [[ ! -d "$LOT" ]]; then
+		mkdir $LOT
+	fi
+
 	touch $ENV
+	touch $LOT/.env
 
+	echo "SRV=$SRV" >> $ENV
+	echo "PKG=$PKG" >> $ENV
+	echo "APP=$APP" >> $ENV
+	echo "RUN=$RUN" >> $ENV
 	echo "LOT=$LOT" >> $ENV
 	echo "SRC=$SRC" >> $ENV
 
 	cd $SRC
 
-	if [[ -e "install.sh" ]]; then
+	if [[ -x "install.sh" ]]; then
 		. install.sh
 	fi
 
-	if [[ -e "compose.yml" ]]; then
-		$docker compose --env-file $APP/.env --env-file $RUN/.env --env-file $ENV up -d
+	if [[ -f "compose.yml" ]]; then
+		$docker compose --env-file $PKG/.env --env-file $ENV up -d
+	fi
+done
+
+#
+# Set-up selected services, or all if none were specified
+#
+
+for SRV in $SERVICES; do
+	ENV="$RUN/.env.$SRV"
+
+	. $ENV
+
+	cd $SRC
+
+	if [[ -x "setup.sh" ]]; then
+		. setup.sh
 	fi
 done

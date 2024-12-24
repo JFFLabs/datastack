@@ -3,6 +3,11 @@ services:
     image: postgres:17.2
     restart: unless-stopped
     container_name: ${PKG_NAME}-postgres
+    env_file:
+      - path: $RUN/.env
+        required: true
+      - path: $LOT/.env
+        required: true
     shm_size: 512mb
     networks:
       - default

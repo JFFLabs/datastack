@@ -70,7 +70,7 @@ for SUB in $ARGS; do
 done
 
 if [[ $help == "1" ]]; then
-    cat help.adoc
+    $(which cat) help.adoc
     exit 0
 fi
 
