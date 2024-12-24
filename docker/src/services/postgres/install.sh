@@ -8,4 +8,4 @@ openssl req -new -x509 -nodes -text \
 chmod 600 $LOT/server.*
 chown 999 $LOT/server.*
 
-echo "POSTGRES_PASSWORD=$SECRET" >> $LOT/.env
+echo "POSTGRES_PASSWORD=\$SECRET" >> $LOT/.env
