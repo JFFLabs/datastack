@@ -1,0 +1,88 @@
+#!/bin/bash
+
+if [[ $(whoami) != "root" ]]; then
+	echo "Must be executed as root, try using 'sudo'"
+	exit 1
+fi
+
+ops=$(uname)
+lsb=$(which lsb_release)
+dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+set -a
+. $dir/.env
+set +a
+
+setup_common() {
+	dkr=$(which docker)
+
+	if [[ $dkr == "" ]]; then
+		curl -fsSL https://get.docker.com -o get-docker.sh | bash
+
+		if [[ "$?" != "0" ]]; then
+			echo "Unable to install docker, please install manually and try again."
+			exit 4
+		fi
+
+		dkr=$(which docker)
+	fi
+
+	ipt=$(which ip)
+	git=$(which git)
+	sed=$(which sed)
+	awk=$(which awk)
+	adr=$($ipt route get 1 | $sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
+	sck=$(systemctl show docker.socket | grep Listen\= | $awk '{ split($1, a, "="); print a[2]  }')
+
+	$dkr volume create datastack > /dev/null
+	$dkr container create -t --privileged --name $PKG_NAME  --restart always -v $sck:/run/docker.sock -v $PKG_NAME:/$PKG_NAME --add-host host.docker.internal=host-gateway $PKG_DIST/$PKG_NAME:${1:-$PKG_VTAG} > /dev/null
+	$dkr start $PKG_NAME > /dev/null
+
+	echo "#!/bin/bash" > /usr/sbin/stack
+	echo "$dkr exec -it $PKG_NAME stack \"\$@\"" >> /usr/sbin/stack
+	chmod 755 /usr/sbin/stack
+
+	ln -s "$($dkr volume inspect $PKG_NAME | jq -r .[0].Mountpoint)" /$PKG_NAME
+}
+
+setup_debian() {
+	apt-get install -y -qq iproute2 git grep gawk sed
+
+	setup_common
+}
+
+setup_darwin() {
+	echo
+}
+
+if [[ $ops == "Linux" ]]; then
+	if [[ $lsb == "" ]]; then
+		echo "LSB release could not be located, please install 'lsb_release'"
+		exit 2
+	fi
+
+	rel=$($lsb -i -s)
+
+	sysctl -w vm.max_map_count=262144
+
+	case "$rel" in
+		"Debian")
+			setup_debian
+			;;
+		*)
+			echo "System of type '$rel' is not supported"
+			exit 3
+	esac
+
+elif [[ $ops == "Darwin" ]]; then
+	setup_darwin
+
+else
+	echo "System of type '$ops' is not supported"
+	exit 100
+
+fi
+
+
+
+

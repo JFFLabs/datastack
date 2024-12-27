@@ -1,0 +1,37 @@
+services:
+  elasticsearch:
+    image: elasticsearch:${VER_ELASTICSEARCH}
+    restart: unless-stopped
+    container_name: ${PKG_NAME}-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - http.cors.allow-origin=\"*\"
+      - http.cors.enabled=true
+      - http.cors.allow-credentials=true
+      - http.cors.allow-headers=x-search-filters,x-search-query,x-search-state,X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization
+    env_file:
+      - path: ${RUN}/.env
+        required: true
+      - path: ${LOT}/.env
+        required: true
+    networks:
+      - default
+    volumes:
+      - data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: curl -fs -u elastic:"$$ELASTIC_PASSWORD" http://localhost:9200 > /dev/null
+      interval: 10s
+      timeout: 10s
+      start_period: 60s
+      retries: 5
+
+networks:
+  default:
+    external: true
+    name: ${PKG_NAME}
+
+volumes:
+  data:
+    name: ${PKG_NAME}-elasticsearch-data

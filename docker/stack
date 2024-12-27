@@ -1,0 +1,82 @@
+#!/bin/bash
+declare -Ax OPTS
+declare -ax ARGS
+
+CMD="${BASH_SOURCE[0]}"
+PKG="$( cd "$( dirname "$CMD" )" &> /dev/null && pwd )"
+
+. $PKG/.env
+
+APP="/$PKG_NAME"
+RUN="$APP/run"
+
+if [ ! -d "$RUN" ]; then
+    mkdir $RUN
+    touch $RUN/.env
+fi
+
+. $RUN/.env
+
+goto() {
+    local DIR="$(pwd)/$1"
+
+    if [ ! -d "$DIR" ]; then
+        echo "Invalid command or subcommand '$1' in '$ARGS'"
+        exit 1
+    fi
+
+    echo $DIR
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -*)
+            NAME="${1##*-}"
+
+            eval "$NAME="1""
+
+            if [[ "$2" != "" ]]; then
+                case $2 in
+                    -*) ;;
+                    *)
+                        eval "$NAME=\"$2\""
+                        shift 2
+                    ;;
+                esac
+            fi
+
+            shift 1
+        ;;
+        *)
+            ARGS+=("$1")
+            shift 1
+        ;;
+  esac
+done
+
+set -- "${ARGS[@]}"
+
+cd $PKG/cmd
+
+if [[ $docker == "" ]]; then
+    docker=$(which docker)
+fi
+
+if [[ $curl == "" ]]; then
+    curl=$(which curl)
+fi
+
+if [[ ! $debug == "" ]]; then
+    set -x
+fi
+
+for SUB in $ARGS; do
+    cd $(goto $SUB)
+done
+
+if [[ $help == "1" ]]; then
+    $(which cat) help.adoc
+    exit 0
+fi
+
+. run.sh

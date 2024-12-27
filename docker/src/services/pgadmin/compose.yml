@@ -1,0 +1,32 @@
+services:
+  pgadmin:
+    image: dpage/pgadmin4:${VER_PGADMIN}
+    restart: unless-stopped
+    container_name: ${PKG_NAME}-pgadmin
+    env_file:
+      - path: ${RUN}/.env
+        required: true
+      - path: ${LOT}/.env
+        required: true
+    entrypoint: >
+        /bin/sh -c "
+            mkdir -pm 700 /var/lib/pgadmin/storage/$USR
+            cp /.pgpass /var/lib/pgadmin/storage/$USR/.pgpass
+            chmod 0600 /var/lib/pgadmin/storage/$USR/.pgpass
+            /entrypoint.sh
+        "
+    networks:
+      - default
+    volumes:
+      - data:/var/lib/pgadmin
+      - ${SRC}/lib/servers.json:/pgadmin4/servers.json
+      - ${LOT}/.pgpass:/.pgpass
+
+networks:
+  default:
+    external: true
+    name: ${PKG_NAME}
+
+volumes:
+  data:
+    name: ${PKG_NAME}-pgadmin-data

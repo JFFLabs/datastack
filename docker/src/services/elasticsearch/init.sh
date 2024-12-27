@@ -1,0 +1,1 @@
+echo "ELASTIC_PASSWORD=\$SECRET" >> $LOT/.env

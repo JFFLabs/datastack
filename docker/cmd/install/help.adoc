@@ -1,0 +1,10 @@
+stack install
+-------------
+
+  --swarm <csp>
+
+    Install as a multi-node docker swarm using the provided Cloud Service Provider (CSP), e.g. `aws`, `gcp`, etc.
+
+  --services <service,...>
+
+    Install select services.  Leaving this option unset will install all services.

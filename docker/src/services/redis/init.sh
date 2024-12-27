@@ -1,0 +1,1 @@
+wait-for-it -t 30 postgres:5432

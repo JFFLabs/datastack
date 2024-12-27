@@ -1,0 +1,23 @@
+services:
+  redis:
+    image: redis:${VER_REDIS}
+    restart: unless-stopped
+    container_name: ${PKG_NAME}-redis
+    env_file:
+      - path: ${RUN}/.env
+        required: true
+      - path: ${LOT}/.env
+        required: true
+    networks:
+      - default
+    volumes:
+      - data:/data
+
+networks:
+  default:
+    external: true
+    name: ${PKG_NAME}
+
+volumes:
+  data:
+    name: ${PKG_NAME}-redis-data

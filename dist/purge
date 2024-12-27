@@ -1,0 +1,25 @@
+#!/bin/bash
+
+if [[ $(whoami) != "root" ]]; then
+	echo "Must be executed as root, try using 'sudo'"
+	exit 1
+fi
+
+dkr=$(which docker)
+dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+set -a
+. $dir/.env
+set +a
+
+if [ -f "/usr/sbin/stack" ]; then
+	/usr/sbin/stack uninstall
+fi
+
+$dkr update --restart=no datastack &> /dev/null
+$dkr stop datastack &> /dev/null
+$dkr container rm datastack  &> /dev/null
+$dkr volume rm datastack &> /dev/null
+
+rm -f /usr/sbin/stack
+rm -f /datastack

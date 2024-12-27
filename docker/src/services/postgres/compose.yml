@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:${VER_POSTGRES}
+    restart: unless-stopped
+    container_name: ${PKG_NAME}-postgres
+    env_file:
+      - path: ${RUN}/.env
+        required: true
+      - path: ${LOT}/.env
+        required: true
+    shm_size: 512mb
+    networks:
+      - default
+    ports:
+      - "5432:5432"
+    command: >
+      -c ssl=on
+      -c ssl_cert_file=/var/lib/postgresql/server.crt
+      -c ssl_key_file=/var/lib/postgresql/server.key
+    volumes:
+      - data:/var/lib/postgresql/data
+      - ${LOT}/server.crt:/var/lib/postgresql/server.crt
+      - ${LOT}/server.key:/var/lib/postgresql/server.key
+
+networks:
+  default:
+    external: true
+    name: ${PKG_NAME}
+
+volumes:
+  data:
+    name: ${PKG_NAME}-postgres-data

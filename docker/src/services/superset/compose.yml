@@ -1,0 +1,95 @@
+services:
+  superset:
+    image: apache/superset:${VER_SUPERSET}
+    command: ["/app/docker/docker-bootstrap.sh", "app-gunicorn"]
+    restart: unless-stopped
+    container_name: ${PKG_NAME}-superset
+    user: root
+    environment:
+      - SUPERSET_PORT=80
+    env_file:
+      - path: ${RUN}/.env
+        required: true
+      - path: ${LOT}/.env
+        required: true
+    networks:
+      - default
+    volumes:
+      - home:/app/superset_home
+      - ${LOT}/app/docker:/app/docker
+      - ${SRC}/lib/config.py:/app/pythonpath/superset_config.py
+      - ${SRC}/lib/public.json:/app/roles/public.json
+
+  superset_init:
+    image: apache/superset:${VER_SUPERSET}
+    command: ["/app/docker/docker-init.sh"]
+    container_name: ${PKG_NAME}-superset-init
+    user: root
+    environment:
+      - SUPERSET_LOAD_EXAMPLES=no
+    env_file:
+      - path: ${RUN}/.env
+        required: true
+      - path: ${LOT}/.env
+        required: true
+    networks:
+      - default
+    volumes:
+      - home:/app/superset_home
+      - ${LOT}/app/docker:/app/docker
+      - ${SRC}/lib/config.py:/app/pythonpath/superset_config.py
+    healthcheck:
+      disable: true
+
+  superset_worker:
+    image: apache/superset:${VER_SUPERSET}
+    command: ["/app/docker/docker-bootstrap.sh", "worker"]
+    restart: unless-stopped
+    container_name: ${PKG_NAME}-superset-worker
+    user: root
+    env_file:
+      - path: ${RUN}/.env
+        required: true
+      - path: ${LOT}/.env
+        required: true
+    networks:
+      - default
+    volumes:
+      - home:/app/superset_home
+      - ${LOT}/app/docker:/app/docker
+      - ${SRC}/lib/config.py:/app/pythonpath/superset_config.py
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A superset.tasks.celery_app:app inspect ping -d celery@$$HOSTNAME",
+        ]
+
+  superset_beat:
+    image: apache/superset:${VER_SUPERSET}
+    command: ["/app/docker/docker-bootstrap.sh", "beat"]
+    restart: unless-stopped
+    container_name: ${PKG_NAME}-superset-beat
+    user: root
+    env_file:
+      - path: ${RUN}/.env
+        required: true
+      - path: ${LOT}/.env
+        required: true
+    networks:
+      - default
+    volumes:
+      - home:/app/superset_home
+      - ${LOT}/app/docker:/app/docker
+      - ${SRC}/lib/config.py:/app/pythonpath/superset_config.py
+    healthcheck:
+      disable: true
+
+networks:
+  default:
+    external: true
+    name: ${PKG_NAME}
+
+volumes:
+  home:
+    name: ${PKG_NAME}-superset-home

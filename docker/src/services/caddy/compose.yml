@@ -1,0 +1,33 @@
+services:
+  caddy:
+    image: caddy:${VER_CADDY}-alpine
+    restart: unless-stopped
+    container_name: ${PKG_NAME}-caddy
+    env_file:
+      - path: ${RUN}/.env
+        required: true
+      - path: ${LOT}/.env
+        required: true
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - default
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - data:/data
+      - config:/config
+      - ${SRC}/lib/config:/etc/caddy/Caddyfile
+
+networks:
+  default:
+    external: true
+    name: ${PKG_NAME}
+
+volumes:
+  data:
+    name: ${PKG_NAME}-caddy-data
+  config:
+    name: ${PKG_NAME}-caddy-config

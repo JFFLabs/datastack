@@ -1,0 +1,19 @@
+https://pgadmin.{$DOMAIN} {
+	tls {$TLS}
+	reverse_proxy http://pgadmin
+}
+
+https://baserow.{$DOMAIN} {
+	tls {$TLS}
+	reverse_proxy http://baserow
+}
+
+https://superset.{$DOMAIN} {
+	tls {$TLS}
+	reverse_proxy http://superset
+}
+
+https://matatika.{$DOMAIN} {
+	tls {$TLS}
+	reverse_proxy http://matatika
+}
